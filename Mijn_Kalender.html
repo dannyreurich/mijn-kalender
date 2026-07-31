@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" id="themeColorMeta" content="#e07a5f">
+<meta name="apple-mobile-web-app-title" content="Mijn Kalender">
+<title>Mijn Kalender</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg: #f4f1ea;
+    --panel: #ffffff;
+    --accent: #e07a5f;
+    --accent-soft: #f4d6c9;
+    --text: #2b2b2b;
+    --muted: #7a746a;
+    --border: #e4ddd2;
+    --today: #e07a5f;
+    --font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
+    --panel-alpha: color-mix(in srgb, var(--panel) 22%, transparent);
+  }
+  *{box-sizing:border-box;}
+  button, .day-cell, .view-day-cell, .tab-btn, .foto-dot, .view-nav-arrow, .mode-toggle-fab{
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  @media (max-width:640px){
+    input, select, textarea{ font-size:16px; }
+  }
+  html{ font-size:16px; }
+  body{
+    margin:0;
+    font-family: var(--font-family);
+    background: var(--bg);
+    color: var(--text);
+    transition: background .3s, color .3s;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    padding:16px 24px;
+    background: var(--panel-alpha);
+    border-bottom:1px solid var(--border);
+  }
+  header h1{
+    font-size:1.4rem;
+    margin:0;
+    color: var(--accent);
+  }
+  .nav-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .nav-controls button{
+    background: var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:8px 12px;
+    cursor:pointer;
+    font-size:.95rem;
+    font-family:inherit;
+  }
+  .nav-controls button:hover{ opacity:.85; }
+  .nav-controls span{
+    font-weight:600;
+    min-width:140px;
+    text-align:center;
+  }
+  .top-actions{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .field-inline{ display:flex; align-items:center; gap:6px; }
+  .field-inline label{ font-size:.8rem; color:var(--muted); white-space:nowrap; }
+  select, input[type=text], input[type=number], input[type=date], input[type=time], textarea{
+    padding:7px 10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    font-size:.9rem;
+    background:#fff;
+    color:var(--text);
+    font-family:inherit;
+  }
+  input[type=color]{
+    width:36px; height:32px; border:1px solid var(--border); border-radius:6px; padding:2px; cursor:pointer; background:#fff;
+  }
+  input[type=range]{
+    width:100%;
+  }
+  .banner{
+    position:relative;
+    height:180px;
+    background-size:cover;
+    background-position:center;
+    background-color: var(--accent-soft);
+    display:flex;
+    align-items:flex-end;
+    overflow:hidden;
+  }
+  .banner .overlay{
+    position:relative;
+    z-index:1;
+    width:100%;
+    background:linear-gradient(transparent, rgba(0,0,0,.45));
+    color:#fff;
+    padding:10px 24px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .banner .overlay h2{
+    margin:0;
+    font-size:1.3rem;
+    text-shadow:0 1px 3px rgba(0,0,0,.5);
+    font-family: var(--font-family);
+  }
+  .banner label.photo-btn{
+    background:rgba(255,255,255,.85);
+    color:#333;
+    padding:6px 12px;
+    border-radius:6px;
+    font-size:.8rem;
+    cursor:pointer;
+  }
+
+  /* Foto-lagen (meerdere foto's per maand, met indeling) */
+  .banner-fotos-laag, .view-banner-fotos{
+    position:absolute; inset:0; z-index:0; overflow:hidden;
+  }
+  .foto-tile{
+    width:100%; height:100%;
+    position:relative;
+    overflow:hidden;
+  }
+  .foto-tile img{
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+    transition:transform .15s ease, object-position .15s ease;
+  }
+  .foto-layout-een{ display:block; }
+  .foto-layout-naast{ display:flex; flex-direction:row; gap:2px; }
+  .foto-layout-naast .foto-tile{ flex:1; }
+  .foto-layout-mozaiek{ display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:2px; }
+  .foto-layout-carrousel .foto-tile{
+    position:absolute; inset:0; opacity:0; transition:opacity .7s ease;
+  }
+  .foto-layout-carrousel .foto-tile.actief{ opacity:1; }
+  .foto-dots{
+    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+    display:flex; gap:6px; z-index:2;
+  }
+  .foto-dot{
+    width:24px; height:24px; border:none; background:transparent;
+    cursor:pointer; padding:0; position:relative;
+  }
+  .foto-dot::before{
+    content:''; position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    width:9px; height:9px; border-radius:50%;
+    background:rgba(255,255,255,.5);
+  }
+  .foto-dot.actief::before{ background:#fff; }
+  main{
+    display:flex;
+    gap:20px;
+    padding:20px 24px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+  .calendar-wrap{
+    flex:2;
+    min-width:320px;
+    background: var(--panel-alpha);
+    border-radius:12px;
+    padding:16px;
+    border:1px solid var(--border);
+  }
+  .weekdays, .days{
+    display:grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap:6px;
+  }
+  .weekdays div{
+    text-align:center;
+    font-weight:600;
+    color:var(--muted);
+    font-size:.8rem;
+    padding-bottom:6px;
+  }
+  .day-cell{
+    min-height:78px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:6px;
+    cursor:pointer;
+    position:relative;
+    background:#fff;
+    transition:background .15s;
+  }
+  .day-cell:hover{ background: var(--accent-soft); }
+  .day-cell.other-month{ opacity:.35; }
+  .day-cell.today{ border:2px solid var(--today); }
+  .day-num{ font-weight:600; font-size:.85rem; }
+  .badges{
+    margin-top:4px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:3px;
+  }
+  .badge{
+    font-size:.65rem;
+    border-radius:5px;
+    padding:1px 4px;
+    color:#fff;
+    background: var(--accent);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width:100%;
+  }
+  .badge.birthday{ background:#c589e8; }
+  .badge.holiday{ background:#e0a33d; }
+  .sidebar{
+    flex:1;
+    min-width:260px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .card{
+    background: var(--panel-alpha);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:14px 16px;
+  }
+  .card h3{
+    margin-top:0;
+    font-size:1rem;
+    color:var(--accent);
+  }
+  .list-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 0;
+    border-bottom:1px dashed var(--border);
+    font-size:.85rem;
+  }
+  .list-item:last-child{ border-bottom:none; }
+  .list-item small{ color:var(--muted); display:block; }
+  .empty{ color:var(--muted); font-size:.85rem; font-style:italic; }
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.4);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:16px;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    background:#fff;
+    border-radius:12px;
+    max-width:420px;
+    width:100%;
+    max-height:85vh;
+    overflow-y:auto;
+    padding:20px;
+    position:relative;
+  }
+  .modal h3{ margin-top:0; }
+  .modal .field{ margin-bottom:10px; display:flex; flex-direction:column; gap:4px; }
+  .modal .field label{ font-size:.8rem; color:var(--muted); }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+  .btn{
+    padding:8px 14px;
+    border-radius:6px;
+    border:none;
+    cursor:pointer;
+    font-size:.85rem;
+    font-family:inherit;
+  }
+  .btn-primary{ background:var(--accent); color:#fff; }
+  .btn-secondary{ background:#eee; color:#333; }
+  .btn-danger{ background:#d94848; color:#fff; }
+  .tabs{ display:flex; gap:6px; margin-bottom:12px; }
+  .tab-btn{
+    flex:1;
+    padding:6px;
+    text-align:center;
+    border-radius:6px;
+    background:#f0ede6;
+    cursor:pointer;
+    font-size:.8rem;
+  }
+  .tab-btn.active{ background:var(--accent); color:#fff; }
+  .tab-content{ display:none; }
+  .tab-content.active{ display:block; }
+  .day-items{ margin-bottom:14px; }
+  .close-x{
+    position:absolute; top:10px; right:14px;
+    cursor:pointer; font-size:1.2rem; color:var(--muted);
+  }
+  .help-text{ font-size:.75rem; color:var(--muted); margin:4px 0 0; }
+  hr.sep{ border:none; border-top:1px solid var(--border); margin:14px 0; }
+
+  /* Themes */
+  body.theme-lente{ --bg:#eef7ec; --panel:#ffffff; --accent:#5b9a6f; --accent-soft:#d7ecd9; --today:#5b9a6f; }
+  body.theme-zomer{ --bg:#eaf6fb; --panel:#ffffff; --accent:#3aa0c8; --accent-soft:#cdeaf5; --today:#3aa0c8; }
+  body.theme-herfst{ --bg:#f8efe3; --panel:#fffdf9; --accent:#c1682f; --accent-soft:#f0dcc2; --today:#c1682f; }
+  body.theme-winter{ --bg:#eef1f7; --panel:#ffffff; --accent:#4d6aa8; --accent-soft:#d6dff0; --today:#4d6aa8; }
+  body.theme-pastel{ --bg:#fbeff5; --panel:#ffffff; --accent:#d987b0; --accent-soft:#f7dceb; --today:#d987b0; }
+  body.theme-donker{ --bg:#1c1c1e; --panel:#2a2a2d; --accent:#e07a5f; --accent-soft:#3a3a3d; --text:#f0f0f0; --muted:#a3a3a3; --border:#3d3d40; --today:#e07a5f; }
+  body.theme-donker select, body.theme-donker input, body.theme-donker textarea{ background:#333; color:#f0f0f0; border-color:#4a4a4a; }
+  body.theme-donker .day-cell{ background:#2a2a2d; }
+  body.theme-donker .modal{ background:#2a2a2d; color:#f0f0f0; }
+
+  /* Patronen (achtergrond van de kalenderdata, niet de foto) */
+  body.pattern-stippen .calendar-wrap,
+  body.pattern-stippen .view-calendar,
+  body.pattern-stippen .list-calendar{
+    background-color: var(--panel-alpha);
+    background-image: radial-gradient(var(--accent-soft) 2px, transparent 2.5px);
+    background-size: 18px 18px;
+  }
+  body.pattern-strepen .calendar-wrap,
+  body.pattern-strepen .view-calendar,
+  body.pattern-strepen .list-calendar{
+    background-color: var(--panel-alpha);
+    background-image: repeating-linear-gradient(45deg, var(--accent-soft) 0 8px, transparent 8px 18px);
+  }
+  body.pattern-ruiten .calendar-wrap,
+  body.pattern-ruiten .view-calendar,
+  body.pattern-ruiten .list-calendar{
+    background-color: var(--panel-alpha);
+    background-image:
+      repeating-linear-gradient(45deg, var(--accent-soft) 0 2px, transparent 2px 22px),
+      repeating-linear-gradient(-45deg, var(--accent-soft) 0 2px, transparent 2px 22px);
+  }
+  body.pattern-confetti .calendar-wrap,
+  body.pattern-confetti .view-calendar,
+  body.pattern-confetti .list-calendar{
+    background-color: var(--panel-alpha);
+    background-image:
+      radial-gradient(var(--accent-soft) 1.6px, transparent 2px),
+      radial-gradient(var(--accent-soft) 1.6px, transparent 2px);
+    background-size: 26px 26px, 26px 26px;
+    background-position: 0 0, 13px 13px;
+  }
+  body.pattern-stippen .day-cell, body.pattern-stippen .view-day-cell,
+  body.pattern-strepen .day-cell, body.pattern-strepen .view-day-cell,
+  body.pattern-ruiten .day-cell, body.pattern-ruiten .view-day-cell,
+  body.pattern-confetti .day-cell, body.pattern-confetti .view-day-cell{
+    background: transparent;
+  }
+
+  @media (max-width:640px){
+    .day-cell{ min-height:56px; }
+    .badge{ font-size:.6rem; }
+    .view-banner{ min-height:170px; margin:0 10px; }
+    .view-calendar, .list-calendar{ margin-left:10px; margin-right:10px; }
+    .nav-controls span{ min-width:100px; font-size:.85rem; }
+  }
+
+  /* ---------- VIEW MODE ---------- */
+  #viewContainer{
+    display:none;
+    min-height:100vh;
+    background: var(--bg);
+    overflow:hidden;
+    position:relative;
+  }
+  .view-inner{
+    max-width:900px;
+    margin:0 auto;
+    padding:0 0 40px;
+  }
+  .view-banner{
+    position:relative;
+    height:38vh;
+    min-height:220px;
+    background-size:cover;
+    background-position:center;
+    background-color:var(--accent-soft);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0 16px;
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .view-banner .view-title{
+    color:#fff;
+    text-align:center;
+    text-shadow:0 2px 10px rgba(0,0,0,.65);
+    background: rgba(0,0,0,.3);
+    padding:10px 26px;
+    border-radius:14px;
+    display:inline-block;
+  }
+  .view-banner .view-title h2{
+    margin:0;
+    font-size:2.4rem;
+    font-family: var(--font-family);
+  }
+  .view-banner .view-title span{
+    font-size:1.1rem;
+    opacity:.9;
+  }
+  .view-title{ position:relative; z-index:1; }
+  .view-nav-arrow{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    background:rgba(255,255,255,.35);
+    border:none;
+    color:#fff;
+    width:44px; height:44px;
+    border-radius:50%;
+    font-size:1.3rem;
+    cursor:pointer;
+    z-index:2;
+    backdrop-filter: blur(2px);
+  }
+  .view-nav-arrow:hover{ background:rgba(255,255,255,.55); }
+  .view-nav-arrow.left{ left:14px; }
+  .view-nav-arrow.right{ right:14px; }
+
+  .mode-toggle-fab{
+    position:absolute;
+    top:16px; right:16px;
+    background:rgba(255,255,255,.85);
+    border:none;
+    border-radius:50%;
+    width:40px; height:40px;
+    font-size:1.1rem;
+    cursor:pointer;
+    z-index:3;
+    box-shadow:0 2px 6px rgba(0,0,0,.2);
+  }
+  .to-view-btn{
+    background: transparent;
+    color: var(--accent);
+    border:1px solid var(--accent);
+  }
+
+  .view-calendar{
+    background: var(--panel-alpha);
+    margin:18px 16px 0;
+    border-radius:14px;
+    padding:18px;
+    border:1px solid var(--border);
+  }
+  .view-calendar .weekdays div{ font-size:.85rem; }
+  .view-days{
+    display:grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap:8px;
+    grid-auto-rows:minmax(64px, auto);
+  }
+  .view-day-cell{
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:6px;
+    background:#fff;
+  }
+  body.theme-donker .view-day-cell{ background:#2a2a2d; }
+  .view-day-cell.other-month{ opacity:.3; }
+  .view-day-cell.today{ border:2px solid var(--today); }
+  .view-day-cell .badge{ white-space:normal; }
+
+  .view-fade{ animation: viewFadeIn .35s ease; }
+  @keyframes viewFadeIn{
+    from{ opacity:0; transform:translateY(6px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .swipe-hint{
+    text-align:center;
+    color:var(--muted);
+    font-size:.8rem;
+    padding:10px 0 0;
+  }
+
+  /* Maand-positie in weergavemodus */
+  .view-banner.h-left{ justify-content:flex-start; }
+  .view-banner.h-center{ justify-content:center; }
+  .view-banner.h-right{ justify-content:flex-end; }
+  .view-banner.v-top{ align-items:flex-start; }
+  .view-banner.v-middle{ align-items:center; }
+  .view-banner.v-bottom{ align-items:flex-end; }
+  .view-banner.h-left .view-title{ margin-left:28px; }
+  .view-banner.h-right .view-title{ margin-right:28px; }
+  .view-banner.v-top .view-title{ margin-top:24px; }
+  .view-banner.v-bottom .view-title{ margin-bottom:24px; }
+
+  /* Lijst-formaat (fotokalender) */
+  .list-calendar{
+    display:flex;
+    gap:24px;
+    background: var(--panel-alpha);
+    margin:18px 16px 0;
+    border-radius:14px;
+    padding:24px;
+    border:1px solid var(--border);
+    align-items:center;
+  }
+  .list-calendar.v-top{ align-items:flex-start; }
+  .list-calendar.v-middle{ align-items:center; }
+  .list-calendar.v-bottom{ align-items:flex-end; }
+  .list-month-label{
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size:2.2rem;
+    color: var(--text);
+    font-family: var(--font-family);
+    white-space:nowrap;
+    letter-spacing:1px;
+  }
+  .list-col{ flex:1; min-width:0; }
+  .list-day-row{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    border-bottom:1px dotted var(--border);
+    padding:4px 0;
+    font-size:.85rem;
+    min-height:22px;
+  }
+  .list-day-num{
+    width:20px;
+    color:var(--muted);
+    font-variant-numeric: tabular-nums;
+    flex-shrink:0;
+  }
+  .list-day-name{
+    font-style:italic;
+    color:var(--accent);
+    font-weight:600;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  @media (max-width:640px){
+    .list-month-label{ font-size:1.5rem; }
+    .list-columns{ gap:16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ BEWERKMODUS ============ -->
+<div id="editContainer">
+  <header>
+    <h1>📅 Mijn Kalender</h1>
+    <div class="nav-controls">
+      <button id="prevBtn">◀</button>
+      <span id="monthLabel"></span>
+      <button id="nextBtn">▶</button>
+      <button id="todayBtn">Vandaag</button>
+    </div>
+    <div class="top-actions">
+      <button class="btn to-view-btn" id="toViewBtn">👁️ Weergavemodus</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner">
+    <div class="banner-fotos-laag" id="bannerFotos"></div>
+    <div class="overlay">
+      <h2 id="bannerMonth"></h2>
+    </div>
+  </div>
+
+  <main>
+    <div class="calendar-wrap">
+      <div class="weekdays">
+        <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+      </div>
+      <div class="days" id="daysGrid"></div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <h3>📷 Foto's <span id="fotoMaandNaam" style="font-weight:400;font-size:.85rem;color:var(--muted);"></span></h3>
+        <div class="field-inline" style="margin-bottom:10px;">
+          <label for="photoLayoutSelect">Indeling</label>
+          <select id="photoLayoutSelect" style="flex:1;">
+            <option value="een">Eén foto</option>
+            <option value="naast">Naast elkaar</option>
+            <option value="mozaiek">Mozaïek</option>
+            <option value="carrousel">Carrousel (wisselt automatisch)</option>
+          </select>
+        </div>
+        <div id="fotoThumbnails" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
+        <label class="btn btn-primary" style="display:block;text-align:center;cursor:pointer;">
+          + Foto's toevoegen
+          <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
+        </label>
+      </div>
+
+      <div class="card">
+        <h3>🎨 Personaliseren</h3>
+        <p class="help-text" style="margin-top:0;">Deze instellingen gelden alleen voor <strong id="personalisatieMaandNaam">deze maand</strong> — navigeer naar een andere maand om die apart te personaliseren.</p>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="themeSelect">Thema</label>
+          <select id="themeSelect" style="flex:1;">
+            <option value="standaard">Standaard</option>
+            <option value="lente">Lente</option>
+            <option value="zomer">Zomer</option>
+            <option value="herfst">Herfst</option>
+            <option value="winter">Winter</option>
+            <option value="pastel">Pastel</option>
+            <option value="donker">Donker</option>
+            <option value="aangepast">Aangepast...</option>
+          </select>
+        </div>
+        <div id="customThemeRow" style="display:none;gap:10px;margin-bottom:8px;" class="field-inline">
+          <label>Achtergrond</label>
+          <input type="color" id="customBg">
+          <label>Accent</label>
+          <input type="color" id="customAccent">
+        </div>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="patternSelect">Patroon</label>
+          <select id="patternSelect" style="flex:1;">
+            <option value="geen">Geen</option>
+            <option value="stippen">Stippen</option>
+            <option value="strepen">Strepen</option>
+            <option value="ruiten">Ruiten</option>
+            <option value="confetti">Confetti</option>
+          </select>
+        </div>
+        <p class="help-text" style="margin-top:0;margin-bottom:8px;">Het patroon loopt door op de achtergrond van de kalenderdata (niet op je foto).</p>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="fontSelect">Lettertype</label>
+          <select id="fontSelect" style="flex:1;">
+            <option value="systeem">Standaard (Segoe UI)</option>
+            <option value="serif">Klassiek serif (Georgia)</option>
+            <option value="klassiek">Times New Roman</option>
+            <option value="modern">Modern (Verdana)</option>
+            <option value="speels">Speels (Comic Sans)</option>
+            <option value="mono">Mono (Courier New)</option>
+          </select>
+        </div>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="sizeSelect">Tekstgrootte</label>
+          <select id="sizeSelect" style="flex:1;">
+            <option value="klein">Klein</option>
+            <option value="normaal">Normaal</option>
+            <option value="groot">Groot</option>
+            <option value="extragroot">Extra groot</option>
+          </select>
+        </div>
+        <div class="field-inline">
+          <label for="fontColorInput">Lettertype kleur</label>
+          <input type="color" id="fontColorInput">
+        </div>
+        <hr class="sep">
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="monthPosVSelect">Maand verticaal</label>
+          <select id="monthPosVSelect" style="flex:1;">
+            <option value="boven">Boven</option>
+            <option value="midden">Midden</option>
+            <option value="onder">Onder</option>
+          </select>
+        </div>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="monthPosHSelect">Maand horizontaal</label>
+          <select id="monthPosHSelect" style="flex:1;">
+            <option value="links">Links</option>
+            <option value="midden">Midden</option>
+            <option value="rechts">Rechts</option>
+          </select>
+        </div>
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="monthSizeSelect">Maandnaam grootte</label>
+          <select id="monthSizeSelect" style="flex:1;">
+            <option value="klein">Klein</option>
+            <option value="normaal">Normaal</option>
+            <option value="groot">Groot</option>
+            <option value="extragroot">Extra groot</option>
+          </select>
+        </div>
+        <hr class="sep">
+        <div class="field-inline" style="margin-bottom:8px;">
+          <label for="formatSelect">Kalenderformaat</label>
+          <select id="formatSelect" style="flex:1;">
+            <option value="raster">Raster (maandoverzicht)</option>
+            <option value="lijst">Lijst (fotokalender)</option>
+          </select>
+        </div>
+        <div class="field-inline" id="showMonthListRow" style="display:none;">
+          <label for="showMonthListCheckbox">Maandnaam ook in de lijst tonen</label>
+          <input type="checkbox" id="showMonthListCheckbox">
+        </div>
+        <p class="help-text">Maandpositie geldt per maand, voor de weergavemodus. In de foto is de maand altijd zichtbaar. Het kalenderformaat geldt voor de hele kalender.</p>
+      </div>
+
+      <div class="card">
+        <h3>🔗 Agenda koppelen</h3>
+        <p class="help-text" style="margin-top:0;">Exporteer je agenda (Google/Outlook/Apple) als .ics-bestand en importeer 'm hier. Live synchroniseren kan niet in dit offline bestand — dit is een eenmalige import van titels en data.</p>
+        <label class="btn btn-primary" style="display:block;text-align:center;cursor:pointer;">
+          Importeer .ics bestand
+          <input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none;">
+        </label>
+        <hr class="sep">
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="exportBtn" style="flex:1;">Back-up export</button>
+          <label class="btn btn-secondary" style="flex:1;text-align:center;cursor:pointer;">
+            Back-up import
+            <input type="file" id="importFile" accept="application/json" style="display:none;">
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="help-text" style="margin:0;">💡 Klik op een dag in de kalender om een afspraak of verjaardag toe te voegen. Alles wordt getoond op de dag zelf.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ WEERGAVEMODUS ============ -->
+<div id="viewContainer">
+  <div class="view-inner">
+    <div class="view-banner" id="viewBanner">
+      <div class="view-banner-fotos" id="viewBannerFotos"></div>
+      <button class="view-nav-arrow left" id="viewPrevBtn">◀</button>
+      <div class="view-title">
+        <h2 id="viewMonthName"></h2>
+        <span id="viewYear"></span>
+      </div>
+      <button class="view-nav-arrow right" id="viewNextBtn">▶</button>
+      <button class="mode-toggle-fab" id="toEditBtn" title="Bewerken">✏️</button>
+      <div class="foto-dots" id="viewFotoDots"></div>
+    </div>
+    <div class="view-calendar" id="viewCalendarRaster">
+      <div class="weekdays">
+        <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+      </div>
+      <div class="view-days" id="viewDaysGrid"></div>
+    </div>
+    <div class="list-calendar" id="viewCalendarList" style="display:none;">
+      <div class="list-month-label" id="listMonthLabel"></div>
+      <div class="list-col" id="listCol1"></div>
+      <div class="list-col" id="listCol2"></div>
+    </div>
+    <p class="swipe-hint">Swipe of scroll om van maand te wisselen</p>
+  </div>
+</div>
+
+<!-- Day modal (bewerkmodus) -->
+<div class="modal-overlay" id="dayModalOverlay">
+  <div class="modal">
+    <span class="close-x" data-close>&times;</span>
+    <h3 id="dayModalTitle"></h3>
+    <div class="tabs">
+      <div class="tab-btn active" data-tab="items">Overzicht</div>
+      <div class="tab-btn" data-tab="newEvent">+ Afspraak</div>
+      <div class="tab-btn" data-tab="newBirthday">+ Verjaardag</div>
+    </div>
+
+    <div class="tab-content active" id="tab-items">
+      <div class="day-items" id="dayItemsList"></div>
+    </div>
+
+    <div class="tab-content" id="tab-newEvent">
+      <div class="field"><label>Titel</label><input type="text" id="evTitle" placeholder="Bijv. Tandarts"></div>
+      <div class="field"><label>Tijd (optioneel)</label><input type="time" id="evTime"></div>
+      <div class="field"><label>Notitie (optioneel)</label><textarea id="evNote" rows="2"></textarea></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="saveEventBtn">Opslaan</button>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-newBirthday">
+      <div class="field"><label>Naam</label><input type="text" id="bdName" placeholder="Bijv. Opa Jan"></div>
+      <div class="field"><label>Geboortejaar (optioneel, voor leeftijd)</label><input type="number" id="bdYear" placeholder="1955"></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="saveBirthdayBtn">Opslaan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Foto bewerken: zoom en focuspunt -->
+<div class="modal-overlay" id="fotoBewerkOverlay">
+  <div class="modal">
+    <span class="close-x" data-close-foto>&times;</span>
+    <h3>Foto aanpassen</h3>
+    <div id="fotoBewerkPreviewWrap" style="width:100%;height:160px;border-radius:8px;overflow:hidden;position:relative;border:1px solid var(--border);margin-bottom:16px;background:#eee;"></div>
+    <div class="field">
+      <label>Grootte (inzoomen)</label>
+      <input type="range" id="fotoZoomRange" min="100" max="250" step="5">
+    </div>
+    <div class="field">
+      <label>Horizontale positie (focus)</label>
+      <input type="range" id="fotoPosXRange" min="0" max="100" step="1">
+    </div>
+    <div class="field">
+      <label>Verticale positie (focus)</label>
+      <input type="range" id="fotoPosYRange" min="0" max="100" step="1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" data-close-foto>Klaar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'mijnKalenderData_v2';
+  const OLD_STORAGE_KEY = 'mijnKalenderData_v1';
+  const MAAND_NAMEN = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+
+  const FONT_MAP = {
+    systeem: "'Segoe UI', Tahoma, Verdana, sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+    klassiek: "'Times New Roman', Times, serif",
+    modern: "Verdana, Geneva, sans-serif",
+    speels: "'Comic Sans MS', 'Comic Sans', cursive",
+    mono: "'Courier New', Courier, monospace"
+  };
+  const SIZE_MAP = { klein: '14px', normaal: '16px', groot: '18px', extragroot: '21px' };
+
+  let data = laadData();
+  let huidigeDatum = new Date();
+  let geselecteerdeDagISO = null;
+  let bewerkendEvent = null;
+  let bewerkendBirthday = null;
+  let huidigeModus = data.mode === 'view' ? 'view' : 'edit';
+
+  const STANDAARD_MAANDSTIJL = {
+    theme: 'standaard', pattern: 'geen', font: 'systeem', fontSize: 'normaal', fontColor: null,
+    customTheme: { bg: '#f4f1ea', accent: '#e07a5f' }, monthPosV: 'midden', monthPosH: 'midden',
+    monthFontSize: 'normaal', photoLayout: 'een'
+  };
+  const MONTH_SIZE_MAP = { klein: '1.6rem', normaal: '2.4rem', groot: '3.2rem', extragroot: '4rem' };
+  let carrouselIndexPerMaand = {};
+  let carrouselTimer = null;
+
+  function standaardData(){
+    return {
+      events: [], birthdays: [], photos: {}, mode: 'edit',
+      calendarFormat: 'raster', showMonthInList: true,
+      maandStijlen: {}
+    };
+  }
+
+  function laadData(){
+    try{
+      let raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) raw = localStorage.getItem(OLD_STORAGE_KEY);
+      if(raw){
+        const geladen = Object.assign(standaardData(), JSON.parse(raw));
+        if(!geladen.maandStijlen) geladen.maandStijlen = {};
+        // Oudere versies sloegen foto's op als één string of een lijst van strings
+        // i.p.v. objecten met zoom/positie — hier omzetten naar het huidige formaat.
+        Object.keys(geladen.photos || {}).forEach(maandNr=>{
+          let lijst = geladen.photos[maandNr];
+          if(typeof lijst === 'string') lijst = [lijst];
+          if(Array.isArray(lijst)){
+            geladen.photos[maandNr] = lijst.map(item=>{
+              if(typeof item === 'string') return { src: item, zoom: 100, posX: 50, posY: 50 };
+              return Object.assign({ zoom: 100, posX: 50, posY: 50 }, item);
+            });
+          }
+        });
+        return geladen;
+      }
+    }catch(e){ console.warn('Kon data niet laden', e); }
+    return standaardData();
+  }
+
+  function bewaarData(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function pad(n){ return n.toString().padStart(2,'0'); }
+  function isoVanDatum(jaar, maand, dag){ return `${jaar}-${pad(maand+1)}-${pad(dag)}`; }
+
+  // Elke maand heeft zijn eigen thema, patroon, lettertype en maandpositie
+  function haalMaandStijl(maandNr){
+    const opgeslagen = data.maandStijlen[maandNr] || {};
+    return Object.assign({}, STANDAARD_MAANDSTIJL, opgeslagen, {
+      customTheme: Object.assign({}, STANDAARD_MAANDSTIJL.customTheme, opgeslagen.customTheme)
+    });
+  }
+
+  function bijwerkenMaandStijl(maandNr, wijzigingen){
+    const huidige = haalMaandStijl(maandNr);
+    data.maandStijlen[maandNr] = Object.assign({}, huidige, wijzigingen);
+    bewaarData();
+  }
+
+  function toonThemaEnStijl(){
+    const maandNr = huidigeDatum.getMonth() + 1;
+    const stijl = haalMaandStijl(maandNr);
+    const personalisatieLabel = document.getElementById('personalisatieMaandNaam');
+    if(personalisatieLabel) personalisatieLabel.textContent = MAAND_NAMEN[huidigeDatum.getMonth()];
+
+    document.body.classList.remove('theme-lente','theme-zomer','theme-herfst','theme-winter','theme-pastel','theme-donker');
+    if(stijl.theme && stijl.theme !== 'standaard' && stijl.theme !== 'aangepast'){
+      document.body.classList.add('theme-' + stijl.theme);
+    }
+    document.body.classList.remove('pattern-stippen','pattern-strepen','pattern-ruiten','pattern-confetti');
+    if(stijl.pattern && stijl.pattern !== 'geen'){
+      document.body.classList.add('pattern-' + stijl.pattern);
+    }
+    document.getElementById('patternSelect').value = stijl.pattern || 'geen';
+
+    if(stijl.theme === 'aangepast'){
+      document.body.style.setProperty('--bg', stijl.customTheme.bg);
+      document.body.style.setProperty('--accent', stijl.customTheme.accent);
+      document.body.style.setProperty('--accent-soft', stijl.customTheme.bg);
+      document.body.style.setProperty('--today', stijl.customTheme.accent);
+    } else {
+      document.body.style.removeProperty('--bg');
+      document.body.style.removeProperty('--accent');
+      document.body.style.removeProperty('--accent-soft');
+      document.body.style.removeProperty('--today');
+    }
+    document.body.style.setProperty('--font-family', FONT_MAP[stijl.font] || FONT_MAP.systeem);
+    document.documentElement.style.fontSize = SIZE_MAP[stijl.fontSize] || SIZE_MAP.normaal;
+
+    if(stijl.fontColor){
+      document.body.style.setProperty('--text', stijl.fontColor);
+    } else {
+      document.body.style.removeProperty('--text');
+    }
+
+    document.getElementById('themeSelect').value = stijl.theme || 'standaard';
+    document.getElementById('fontSelect').value = stijl.font || 'systeem';
+    document.getElementById('sizeSelect').value = stijl.fontSize || 'normaal';
+    document.getElementById('customThemeRow').style.display = stijl.theme === 'aangepast' ? 'flex' : 'none';
+    document.getElementById('customBg').value = stijl.customTheme.bg;
+    document.getElementById('customAccent').value = stijl.customTheme.accent;
+    document.getElementById('fontColorInput').value = stijl.fontColor || getComputedStyle(document.body).getPropertyValue('--text').trim() || '#2b2b2b';
+    document.getElementById('monthPosVSelect').value = stijl.monthPosV || 'midden';
+    document.getElementById('monthPosHSelect').value = stijl.monthPosH || 'midden';
+    document.getElementById('monthSizeSelect').value = stijl.monthFontSize || 'normaal';
+    const maandGrootte = MONTH_SIZE_MAP[stijl.monthFontSize] || MONTH_SIZE_MAP.normaal;
+    document.getElementById('viewMonthName').style.fontSize = maandGrootte;
+    document.getElementById('listMonthLabel').style.fontSize = maandGrootte;
+    document.getElementById('formatSelect').value = data.calendarFormat || 'raster';
+    document.getElementById('showMonthListCheckbox').checked = data.showMonthInList !== false;
+    document.getElementById('showMonthListRow').style.display = data.calendarFormat === 'lijst' ? 'flex' : 'none';
+
+    const vKlasse = stijl.monthPosV === 'boven' ? 'v-top' : stijl.monthPosV === 'onder' ? 'v-bottom' : 'v-middle';
+    const hKlasse = stijl.monthPosH === 'links' ? 'h-left' : stijl.monthPosH === 'rechts' ? 'h-right' : 'h-center';
+
+    const viewBannerEl = document.getElementById('viewBanner');
+    viewBannerEl.classList.remove('v-top','v-middle','v-bottom','h-left','h-center','h-right');
+    viewBannerEl.classList.add(vKlasse, hKlasse);
+
+    const listCalEl = document.getElementById('viewCalendarList');
+    listCalEl.classList.remove('v-top','v-middle','v-bottom');
+    listCalEl.classList.add(vKlasse);
+
+    const labelEl = document.getElementById('listMonthLabel');
+    const col1El = document.getElementById('listCol1');
+    const col2El = document.getElementById('listCol2');
+    labelEl.style.display = data.showMonthInList === false ? 'none' : '';
+    if(stijl.monthPosH === 'links'){ labelEl.style.order = -1; col1El.style.order = 0; col2El.style.order = 1; }
+    else if(stijl.monthPosH === 'rechts'){ col1El.style.order = -1; col2El.style.order = 0; labelEl.style.order = 1; }
+    else { col1El.style.order = -1; labelEl.style.order = 0; col2El.style.order = 1; }
+
+    document.getElementById('viewCalendarRaster').style.display = data.calendarFormat === 'lijst' ? 'none' : 'block';
+    document.getElementById('viewCalendarList').style.display = data.calendarFormat === 'lijst' ? 'flex' : 'none';
+
+    const themeColorMeta = document.getElementById('themeColorMeta');
+    if(themeColorMeta){
+      const accentKleur = getComputedStyle(document.body).getPropertyValue('--accent').trim();
+      if(accentKleur) themeColorMeta.setAttribute('content', accentKleur);
+    }
+  }
+
+  function fotosVoorMaand(maandNr){
+    return data.photos[maandNr] || [];
+  }
+
+  function voegFotoToe(maandNr, dataUrl){
+    if(!data.photos[maandNr]) data.photos[maandNr] = [];
+    data.photos[maandNr].push({ src: dataUrl, zoom: 100, posX: 50, posY: 50 });
+    bewaarData();
+  }
+
+  function verwijderFoto(maandNr, index){
+    if(data.photos[maandNr]){
+      data.photos[maandNr].splice(index, 1);
+      bewaarData();
+    }
+  }
+
+  // Bouwt een foto-tile met object-fit:cover, zodat liggende en staande foto's
+  // altijd hun vak vullen; zoom en positie bepalen de uitsnede/focus.
+  function maakFotoTile(foto, extraKlasse){
+    const tile = document.createElement('div');
+    tile.className = 'foto-tile' + (extraKlasse ? ' ' + extraKlasse : '');
+    const img = document.createElement('img');
+    img.src = foto.src;
+    img.style.objectPosition = (foto.posX != null ? foto.posX : 50) + '% ' + (foto.posY != null ? foto.posY : 50) + '%';
+    img.style.transform = 'scale(' + ((foto.zoom || 100) / 100) + ')';
+    tile.appendChild(img);
+    return tile;
+  }
+
+  function renderFotoLaag(containerEl, dotsEl, maandNr){
+    const fotos = fotosVoorMaand(maandNr);
+    const stijl = haalMaandStijl(maandNr);
+    const layout = stijl.photoLayout || 'een';
+    containerEl.innerHTML = '';
+    containerEl.className = containerEl.className.split(' ')[0] + ' foto-layout-' + layout;
+
+    if(dotsEl) dotsEl.innerHTML = '';
+    if(fotos.length === 0) return;
+
+    if(layout === 'carrousel'){
+      let idx = carrouselIndexPerMaand[maandNr] || 0;
+      if(idx >= fotos.length) idx = 0;
+      fotos.forEach((foto, i)=>{
+        containerEl.appendChild(maakFotoTile(foto, i===idx ? 'actief' : ''));
+      });
+      if(dotsEl && fotos.length > 1){
+        fotos.forEach((_, i)=>{
+          const dot = document.createElement('button');
+          dot.className = 'foto-dot' + (i===idx ? ' actief' : '');
+          dot.type = 'button';
+          dot.onclick = (e)=>{ e.stopPropagation(); carrouselIndexPerMaand[maandNr] = i; renderBanner(); };
+          dotsEl.appendChild(dot);
+        });
+      }
+    } else {
+      const teTonen = layout === 'een' ? fotos.slice(0,1) : fotos;
+      teTonen.forEach(foto=>{
+        containerEl.appendChild(maakFotoTile(foto, 'actief'));
+      });
+    }
+  }
+
+  function renderBanner(){
+    if(carrouselTimer){ clearInterval(carrouselTimer); carrouselTimer = null; }
+
+    const maandIdx = huidigeDatum.getMonth();
+    const maandNr = maandIdx + 1;
+    const naam = MAAND_NAMEN[maandIdx].charAt(0).toUpperCase() + MAAND_NAMEN[maandIdx].slice(1);
+    document.getElementById('bannerMonth').textContent = naam;
+    document.getElementById('viewMonthName').textContent = naam;
+    document.getElementById('viewYear').textContent = huidigeDatum.getFullYear();
+
+    renderFotoLaag(document.getElementById('bannerFotos'), null, maandNr);
+    renderFotoLaag(document.getElementById('viewBannerFotos'), document.getElementById('viewFotoDots'), maandNr);
+
+    const stijl = haalMaandStijl(maandNr);
+    const fotos = fotosVoorMaand(maandNr);
+    if((stijl.photoLayout || 'een') === 'carrousel' && fotos.length > 1){
+      carrouselTimer = setInterval(()=>{
+        const m = huidigeDatum.getMonth() + 1;
+        const f = fotosVoorMaand(m);
+        if(f.length < 2) return;
+        const huidige = carrouselIndexPerMaand[m] || 0;
+        carrouselIndexPerMaand[m] = (huidige + 1) % f.length;
+        renderBanner();
+      }, 4000);
+    }
+  }
+
+  function renderFotoThumbnails(){
+    const maandNr = huidigeDatum.getMonth() + 1;
+    document.getElementById('fotoMaandNaam').textContent = '– ' + MAAND_NAMEN[huidigeDatum.getMonth()];
+    document.getElementById('photoLayoutSelect').value = haalMaandStijl(maandNr).photoLayout || 'een';
+
+    const fotos = fotosVoorMaand(maandNr);
+    const wrap = document.getElementById('fotoThumbnails');
+    wrap.innerHTML = '';
+    if(fotos.length === 0){
+      wrap.innerHTML = '<div class="empty">Nog geen foto\'s voor deze maand.</div>';
+      return;
+    }
+    fotos.forEach((foto, i)=>{
+      const thumb = document.createElement('div');
+      thumb.style.cssText = 'position:relative;width:76px;height:76px;border-radius:8px;overflow:hidden;border:1px solid var(--border);';
+      thumb.appendChild(maakFotoTile(foto, 'actief'));
+
+      const del = document.createElement('button');
+      del.textContent = '×';
+      del.type = 'button';
+      del.style.cssText = 'position:absolute;top:0;right:0;background:rgba(0,0,0,.6);color:#fff;border:none;width:24px;height:24px;line-height:22px;font-size:14px;cursor:pointer;border-radius:0 0 0 8px;';
+      del.onclick = ()=>{ verwijderFoto(maandNr, i); renderFotoThumbnails(); renderBanner(); };
+
+      const bewerk = document.createElement('button');
+      bewerk.textContent = '✎';
+      bewerk.type = 'button';
+      bewerk.title = 'Grootte en positie aanpassen';
+      bewerk.style.cssText = 'position:absolute;bottom:0;left:0;background:rgba(0,0,0,.6);color:#fff;border:none;width:24px;height:24px;line-height:22px;font-size:12px;cursor:pointer;border-radius:0 8px 0 0;';
+      bewerk.onclick = ()=> openFotoBewerk(maandNr, i);
+
+      thumb.appendChild(bewerk);
+      thumb.appendChild(del);
+      wrap.appendChild(thumb);
+    });
+  }
+
+  // ---------- Foto bewerken: zoom en focuspunt ----------
+  let bewerkendeFoto = null;
+
+  function openFotoBewerk(maandNr, index){
+    bewerkendeFoto = { maandNr, index };
+    const foto = data.photos[maandNr][index];
+    document.getElementById('fotoZoomRange').value = foto.zoom || 100;
+    document.getElementById('fotoPosXRange').value = foto.posX != null ? foto.posX : 50;
+    document.getElementById('fotoPosYRange').value = foto.posY != null ? foto.posY : 50;
+    verversFotoBewerkPreview();
+    document.getElementById('fotoBewerkOverlay').classList.add('open');
+  }
+
+  function verversFotoBewerkPreview(){
+    if(!bewerkendeFoto) return;
+    const foto = data.photos[bewerkendeFoto.maandNr][bewerkendeFoto.index];
+    const preview = document.getElementById('fotoBewerkPreviewWrap');
+    preview.innerHTML = '';
+    preview.appendChild(maakFotoTile(foto, 'actief'));
+  }
+
+  ['fotoZoomRange','fotoPosXRange','fotoPosYRange'].forEach(id=>{
+    document.getElementById(id).oninput = (e)=>{
+      if(!bewerkendeFoto) return;
+      const foto = data.photos[bewerkendeFoto.maandNr][bewerkendeFoto.index];
+      if(id === 'fotoZoomRange') foto.zoom = parseInt(e.target.value, 10);
+      if(id === 'fotoPosXRange') foto.posX = parseInt(e.target.value, 10);
+      if(id === 'fotoPosYRange') foto.posY = parseInt(e.target.value, 10);
+      bewaarData();
+      verversFotoBewerkPreview();
+      renderBanner();
+    };
+  });
+
+  document.querySelectorAll('[data-close-foto]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      document.getElementById('fotoBewerkOverlay').classList.remove('open');
+      bewerkendeFoto = null;
+      renderFotoThumbnails();
+    });
+  });
+
+  // ---------- Nederlandse feestdagen (automatisch, per jaar berekend) ----------
+  const FEESTDAGEN_CACHE = {};
+
+  function berekenPasen(jaar){
+    // Meeus/Jones/Butcher-algoritme voor de datum van Eerste Paasdag
+    const a = jaar % 19;
+    const b = Math.floor(jaar/100);
+    const c = jaar % 100;
+    const d = Math.floor(b/4);
+    const e = b % 4;
+    const f = Math.floor((b+8)/25);
+    const g = Math.floor((b-f+1)/3);
+    const h = (19*a + b - d - g + 15) % 30;
+    const i = Math.floor(c/4);
+    const k = c % 4;
+    const l = (32 + 2*e + 2*i - h - k) % 7;
+    const m = Math.floor((a + 11*h + 22*l)/451);
+    const maand = Math.floor((h + l - 7*m + 114)/31);
+    const dag = ((h + l - 7*m + 114) % 31) + 1;
+    return new Date(jaar, maand-1, dag);
+  }
+
+  function feestdagenVoorJaar(jaar){
+    if(FEESTDAGEN_CACHE[jaar]) return FEESTDAGEN_CACHE[jaar];
+    const pasen = berekenPasen(jaar);
+    const plusDagen = (n)=>{ const d = new Date(pasen); d.setDate(d.getDate()+n); return d; };
+    const koningsdag = new Date(jaar, 3, 27);
+    if(koningsdag.getDay() === 0) koningsdag.setDate(26);
+
+    const ruw = [
+      { naam: 'Nieuwjaarsdag', datum: new Date(jaar,0,1) },
+      { naam: 'Goede Vrijdag', datum: plusDagen(-2) },
+      { naam: 'Eerste Paasdag', datum: pasen },
+      { naam: 'Tweede Paasdag', datum: plusDagen(1) },
+      { naam: 'Koningsdag', datum: koningsdag },
+      { naam: 'Bevrijdingsdag', datum: new Date(jaar,4,5) },
+      { naam: 'Hemelvaartsdag', datum: plusDagen(39) },
+      { naam: 'Eerste Pinksterdag', datum: plusDagen(49) },
+      { naam: 'Tweede Pinksterdag', datum: plusDagen(50) },
+      { naam: 'Eerste Kerstdag', datum: new Date(jaar,11,25) },
+      { naam: 'Tweede Kerstdag', datum: new Date(jaar,11,26) }
+    ];
+    const lijst = ruw.map(f => ({ naam: f.naam, month: f.datum.getMonth()+1, day: f.datum.getDate() }));
+    FEESTDAGEN_CACHE[jaar] = lijst;
+    return lijst;
+  }
+
+  function feestdagenOpDag(jaar, maandNr, dag){
+    return feestdagenVoorJaar(jaar).filter(f => f.month === maandNr && f.day === dag);
+  }
+
+  function berekenGridDagen(){
+    const jaar = huidigeDatum.getFullYear();
+    const maand = huidigeDatum.getMonth();
+    const eersteDag = new Date(jaar, maand, 1);
+    let startWeekdag = eersteDag.getDay();
+    startWeekdag = startWeekdag === 0 ? 6 : startWeekdag - 1;
+    const aantalDagen = new Date(jaar, maand+1, 0).getDate();
+    const vorigeMaandDagen = new Date(jaar, maand, 0).getDate();
+    const totaalCellen = Math.ceil((startWeekdag + aantalDagen)/7)*7;
+    const vandaag = new Date();
+    const cellen = [];
+
+    for(let i=0;i<totaalCellen;i++){
+      let dagNum, cellJaar=jaar, cellMaand=maand, otherMonth=false;
+      if(i < startWeekdag){
+        dagNum = vorigeMaandDagen - startWeekdag + i + 1;
+        cellMaand = maand-1; otherMonth = true;
+        if(cellMaand<0){ cellMaand=11; cellJaar=jaar-1; }
+      } else if(i >= startWeekdag + aantalDagen){
+        dagNum = i - startWeekdag - aantalDagen + 1;
+        cellMaand = maand+1; otherMonth = true;
+        if(cellMaand>11){ cellMaand=0; cellJaar=jaar+1; }
+      } else {
+        dagNum = i - startWeekdag + 1;
+      }
+      const iso = isoVanDatum(cellJaar, cellMaand, dagNum);
+      const isVandaag = iso === isoVanDatum(vandaag.getFullYear(), vandaag.getMonth(), vandaag.getDate());
+      cellen.push({ dagNum, cellJaar, cellMaand, otherMonth, iso, isVandaag });
+    }
+    return cellen;
+  }
+
+  function renderKalender(){
+    document.getElementById('monthLabel').textContent = `${MAAND_NAMEN[huidigeDatum.getMonth()].charAt(0).toUpperCase()+MAAND_NAMEN[huidigeDatum.getMonth()].slice(1)} ${huidigeDatum.getFullYear()}`;
+    const cellen = berekenGridDagen();
+    const grid = document.getElementById('daysGrid');
+    grid.innerHTML = '';
+
+    cellen.forEach(c=>{
+      const cell = document.createElement('div');
+      cell.className = 'day-cell' + (c.otherMonth ? ' other-month' : '') + (c.isVandaag ? ' today' : '');
+      const nummerEl = document.createElement('div');
+      nummerEl.className = 'day-num';
+      nummerEl.textContent = c.dagNum;
+      cell.appendChild(nummerEl);
+
+      const badgesEl = document.createElement('div');
+      badgesEl.className = 'badges';
+      data.events.filter(e => e.date === c.iso).forEach(ev=>{
+        const b = document.createElement('div');
+        b.className = 'badge';
+        b.textContent = ev.title;
+        badgesEl.appendChild(b);
+      });
+      data.birthdays.filter(b => b.month === c.cellMaand+1 && b.day === c.dagNum).forEach(bd=>{
+        const b = document.createElement('div');
+        b.className = 'badge birthday';
+        const leeftijd = bd.year ? (c.cellJaar - bd.year) : null;
+        b.textContent = '🎂 ' + bd.name + (leeftijd !== null ? ' · ' + leeftijd : '');
+        badgesEl.appendChild(b);
+      });
+      feestdagenOpDag(c.cellJaar, c.cellMaand+1, c.dagNum).forEach(f=>{
+        const b = document.createElement('div');
+        b.className = 'badge holiday';
+        b.textContent = '🇳🇱 ' + f.naam;
+        badgesEl.appendChild(b);
+      });
+      cell.appendChild(badgesEl);
+      cell.addEventListener('click', ()=> openDayModal(c.iso, c.cellJaar, c.cellMaand, c.dagNum));
+      grid.appendChild(cell);
+    });
+  }
+
+  function renderViewKalender(){
+    const cellen = berekenGridDagen();
+    const grid = document.getElementById('viewDaysGrid');
+    grid.innerHTML = '';
+    cellen.forEach(c=>{
+      const cell = document.createElement('div');
+      cell.className = 'view-day-cell' + (c.otherMonth ? ' other-month' : '') + (c.isVandaag ? ' today' : '');
+      const nummerEl = document.createElement('div');
+      nummerEl.className = 'day-num';
+      nummerEl.textContent = c.dagNum;
+      cell.appendChild(nummerEl);
+
+      const badgesEl = document.createElement('div');
+      badgesEl.className = 'badges';
+      data.events.filter(e => e.date === c.iso).forEach(ev=>{
+        const b = document.createElement('div');
+        b.className = 'badge';
+        b.textContent = ev.title + (ev.time ? ' · '+ev.time : '');
+        badgesEl.appendChild(b);
+      });
+      data.birthdays.filter(b => b.month === c.cellMaand+1 && b.day === c.dagNum).forEach(bd=>{
+        const b = document.createElement('div');
+        b.className = 'badge birthday';
+        const leeftijd = bd.year ? (c.cellJaar - bd.year) : null;
+        b.textContent = '🎂 ' + bd.name + (leeftijd !== null ? ' · ' + leeftijd : '');
+        badgesEl.appendChild(b);
+      });
+      feestdagenOpDag(c.cellJaar, c.cellMaand+1, c.dagNum).forEach(f=>{
+        const b = document.createElement('div');
+        b.className = 'badge holiday';
+        b.textContent = '🇳🇱 ' + f.naam;
+        badgesEl.appendChild(b);
+      });
+      cell.appendChild(badgesEl);
+      grid.appendChild(cell);
+    });
+  }
+
+  function renderListKalender(){
+    const jaar = huidigeDatum.getFullYear();
+    const maand = huidigeDatum.getMonth();
+    const naam = MAAND_NAMEN[maand].charAt(0).toUpperCase() + MAAND_NAMEN[maand].slice(1);
+    document.getElementById('listMonthLabel').textContent = naam;
+
+    const aantalDagen = new Date(jaar, maand+1, 0).getDate();
+    const mid = Math.ceil(aantalDagen/2);
+    const col1 = document.getElementById('listCol1');
+    const col2 = document.getElementById('listCol2');
+    col1.innerHTML = '';
+    col2.innerHTML = '';
+
+    for(let dag=1; dag<=aantalDagen; dag++){
+      const iso = isoVanDatum(jaar, maand, dag);
+      const namen = [];
+      data.events.filter(e=>e.date===iso).forEach(ev=> namen.push(ev.title + (ev.time ? ' ' + ev.time : '')));
+      data.birthdays.filter(b=>b.month===maand+1 && b.day===dag).forEach(bd=>{
+        const leeftijd = bd.year ? (jaar - bd.year) : null;
+        namen.push(bd.name + (leeftijd !== null ? ' (' + leeftijd + ')' : ''));
+      });
+      feestdagenOpDag(jaar, maand+1, dag).forEach(f=> namen.push(f.naam));
+
+      const row = document.createElement('div');
+      row.className = 'list-day-row';
+      const num = document.createElement('span');
+      num.className = 'list-day-num';
+      num.textContent = dag;
+      row.appendChild(num);
+      if(namen.length){
+        const naamEl = document.createElement('span');
+        naamEl.className = 'list-day-name';
+        naamEl.textContent = namen.join(', ');
+        row.appendChild(naamEl);
+      }
+      (dag <= mid ? col1 : col2).appendChild(row);
+    }
+  }
+
+  function renderAlles(animeer){
+    toonThemaEnStijl();
+    renderBanner();
+    renderFotoThumbnails();
+    renderKalender();
+    renderViewKalender();
+    renderListKalender();
+    if(animeer && huidigeModus === 'view'){
+      const inner = document.querySelector('.view-inner');
+      inner.classList.remove('view-fade');
+      void inner.offsetWidth;
+      inner.classList.add('view-fade');
+    }
+  }
+
+  // ---------- Modus wisselen ----------
+  function zetModus(modus){
+    huidigeModus = modus;
+    data.mode = modus;
+    bewaarData();
+    document.getElementById('editContainer').style.display = modus === 'edit' ? 'block' : 'none';
+    document.getElementById('viewContainer').style.display = modus === 'view' ? 'block' : 'none';
+  }
+  document.getElementById('toViewBtn').onclick = ()=> zetModus('view');
+  document.getElementById('toEditBtn').onclick = ()=> zetModus('edit');
+
+  // ---------- Maandnavigatie ----------
+  function vorigeMaand(){ huidigeDatum.setMonth(huidigeDatum.getMonth()-1); renderAlles(true); }
+  function volgendeMaand(){ huidigeDatum.setMonth(huidigeDatum.getMonth()+1); renderAlles(true); }
+  document.getElementById('prevBtn').onclick = vorigeMaand;
+  document.getElementById('nextBtn').onclick = volgendeMaand;
+  document.getElementById('todayBtn').onclick = ()=>{ huidigeDatum = new Date(); renderAlles(true); };
+  document.getElementById('viewPrevBtn').onclick = vorigeMaand;
+  document.getElementById('viewNextBtn').onclick = volgendeMaand;
+
+  // Swipe (touch) in weergavemodus
+  let touchStartX = null;
+  const viewContainer = document.getElementById('viewContainer');
+  viewContainer.addEventListener('touchstart', (e)=>{ touchStartX = e.touches[0].clientX; }, {passive:true});
+  viewContainer.addEventListener('touchend', (e)=>{
+    if(touchStartX === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if(Math.abs(dx) > 50){ dx < 0 ? volgendeMaand() : vorigeMaand(); }
+    touchStartX = null;
+  }, {passive:true});
+
+  // Scroll (wheel) in weergavemodus
+  let wheelVergrendeld = false;
+  viewContainer.addEventListener('wheel', (e)=>{
+    if(wheelVergrendeld) return;
+    if(Math.abs(e.deltaY) < 25) return;
+    wheelVergrendeld = true;
+    e.deltaY > 0 ? volgendeMaand() : vorigeMaand();
+    setTimeout(()=>{ wheelVergrendeld = false; }, 550);
+  }, {passive:true});
+
+  // Pijltjestoetsen in weergavemodus
+  document.addEventListener('keydown', (e)=>{
+    if(huidigeModus !== 'view') return;
+    if(e.key === 'ArrowLeft') vorigeMaand();
+    if(e.key === 'ArrowRight') volgendeMaand();
+  });
+
+  // ---------- Personalisatie ----------
+  function huidigeMaandNr(){ return huidigeDatum.getMonth() + 1; }
+
+  document.getElementById('themeSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { theme: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('fontSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { font: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('sizeSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { fontSize: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('customBg').oninput = (e)=>{
+    const stijl = haalMaandStijl(huidigeMaandNr());
+    bijwerkenMaandStijl(huidigeMaandNr(), { customTheme: Object.assign({}, stijl.customTheme, { bg: e.target.value }) });
+    toonThemaEnStijl();
+  };
+  document.getElementById('customAccent').oninput = (e)=>{
+    const stijl = haalMaandStijl(huidigeMaandNr());
+    bijwerkenMaandStijl(huidigeMaandNr(), { customTheme: Object.assign({}, stijl.customTheme, { accent: e.target.value }) });
+    toonThemaEnStijl();
+  };
+  document.getElementById('fontColorInput').oninput = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { fontColor: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('patternSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { pattern: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('monthPosVSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { monthPosV: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('monthPosHSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { monthPosH: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('monthSizeSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { monthFontSize: e.target.value }); toonThemaEnStijl(); };
+  document.getElementById('formatSelect').onchange = (e)=>{ data.calendarFormat = e.target.value; bewaarData(); renderAlles(); };
+  document.getElementById('showMonthListCheckbox').onchange = (e)=>{ data.showMonthInList = e.target.checked; bewaarData(); toonThemaEnStijl(); };
+
+  document.getElementById('photoLayoutSelect').onchange = (e)=>{ bijwerkenMaandStijl(huidigeMaandNr(), { photoLayout: e.target.value }); renderBanner(); renderFotoThumbnails(); };
+
+  document.getElementById('photoInput').onchange = (e)=>{
+    const files = Array.from(e.target.files || []);
+    if(files.length === 0) return;
+    const maandNr = huidigeDatum.getMonth() + 1;
+    let resterend = files.length;
+    files.forEach(file=>{
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        voegFotoToe(maandNr, reader.result);
+        resterend--;
+        if(resterend === 0){ renderBanner(); renderFotoThumbnails(); }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  // ---------- Dag-modal ----------
+  function openDayModal(iso, jaar, maand, dag){
+    geselecteerdeDagISO = iso;
+    bewerkendEvent = null;
+    bewerkendBirthday = null;
+    document.getElementById('saveEventBtn').textContent = 'Opslaan';
+    document.getElementById('saveBirthdayBtn').textContent = 'Opslaan';
+    document.getElementById('dayModalTitle').textContent = `${dag} ${MAAND_NAMEN[maand]} ${jaar}`;
+    document.getElementById('evTitle').value='';
+    document.getElementById('evTime').value='';
+    document.getElementById('evNote').value='';
+    document.getElementById('bdName').value='';
+    document.getElementById('bdYear').value='';
+    renderDagItems(iso, maand, dag);
+    switchTab('items');
+    document.getElementById('dayModalOverlay').classList.add('open');
+  }
+
+  function startBewerkEvent(ev){
+    bewerkendEvent = ev;
+    document.getElementById('evTitle').value = ev.title;
+    document.getElementById('evTime').value = ev.time || '';
+    document.getElementById('evNote').value = ev.note || '';
+    document.getElementById('saveEventBtn').textContent = 'Wijzigen';
+    switchTab('newEvent');
+  }
+
+  function startBewerkBirthday(bd){
+    bewerkendBirthday = bd;
+    document.getElementById('bdName').value = bd.name;
+    document.getElementById('bdYear').value = bd.year || '';
+    document.getElementById('saveBirthdayBtn').textContent = 'Wijzigen';
+    switchTab('newBirthday');
+  }
+
+  function renderDagItems(iso, maand, dag){
+    const list = document.getElementById('dayItemsList');
+    list.innerHTML = '';
+    const events = data.events.filter(e=>e.date===iso);
+    const birthdays = data.birthdays.filter(b=>b.month===maand+1 && b.day===dag);
+    const jaarVoorFeestdag = parseInt(iso.split('-')[0],10);
+    const feestdagen = feestdagenOpDag(jaarVoorFeestdag, maand+1, dag);
+    if(events.length===0 && birthdays.length===0 && feestdagen.length===0){
+      list.innerHTML = '<div class="empty">Nog niets gepland op deze dag.</div>';
+      return;
+    }
+    feestdagen.forEach(f=>{
+      const row = document.createElement('div');
+      row.className='list-item';
+      row.innerHTML = `<span>🇳🇱 ${f.naam}<small>Nederlandse feestdag</small></span>`;
+      list.appendChild(row);
+    });
+    events.forEach(ev=>{
+      const row = document.createElement('div');
+      row.className='list-item';
+      row.innerHTML = `<span>📌 ${ev.title}<small>${ev.time || ''}${ev.note ? ' · '+ev.note : ''}</small></span>`;
+      const acties = document.createElement('div');
+      acties.style.display='flex'; acties.style.gap='6px';
+      const bewerk = document.createElement('button');
+      bewerk.className='btn btn-secondary'; bewerk.textContent='Bewerken';
+      bewerk.onclick=()=> startBewerkEvent(ev);
+      const del = document.createElement('button');
+      del.className='btn btn-danger'; del.textContent='Verwijder';
+      del.onclick=()=>{ data.events = data.events.filter(x=>x!==ev); bewaarData(); renderDagItems(iso, maand, dag); renderAlles(); };
+      acties.appendChild(bewerk);
+      acties.appendChild(del);
+      row.appendChild(acties);
+      list.appendChild(row);
+    });
+    const jaarVanDag = parseInt(iso.split('-')[0],10);
+    birthdays.forEach(bd=>{
+      const row = document.createElement('div');
+      row.className='list-item';
+      const leeftijd = bd.year ? (jaarVanDag - bd.year) : null;
+      row.innerHTML = `<span>🎂 ${bd.name}${leeftijd !== null ? '<small>'+leeftijd+'</small>' : ''}</span>`;
+      const acties = document.createElement('div');
+      acties.style.display='flex'; acties.style.gap='6px';
+      const bewerk = document.createElement('button');
+      bewerk.className='btn btn-secondary'; bewerk.textContent='Bewerken';
+      bewerk.onclick=()=> startBewerkBirthday(bd);
+      const del = document.createElement('button');
+      del.className='btn btn-danger'; del.textContent='Verwijder';
+      del.onclick=()=>{ data.birthdays = data.birthdays.filter(x=>x!==bd); bewaarData(); renderDagItems(iso, maand, dag); renderAlles(); };
+      acties.appendChild(bewerk);
+      acties.appendChild(del);
+      row.appendChild(acties);
+      list.appendChild(row);
+    });
+  }
+
+  function switchTab(name){
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active', c.id==='tab-'+name));
+  }
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> {
+      if(btn.dataset.tab === 'newEvent'){
+        bewerkendEvent = null;
+        document.getElementById('evTitle').value='';
+        document.getElementById('evTime').value='';
+        document.getElementById('evNote').value='';
+        document.getElementById('saveEventBtn').textContent = 'Opslaan';
+      }
+      if(btn.dataset.tab === 'newBirthday'){
+        bewerkendBirthday = null;
+        document.getElementById('bdName').value='';
+        document.getElementById('bdYear').value='';
+        document.getElementById('saveBirthdayBtn').textContent = 'Opslaan';
+      }
+      switchTab(btn.dataset.tab);
+    });
+  });
+  document.querySelectorAll('[data-close]').forEach(el=>{
+    el.addEventListener('click', ()=> document.getElementById('dayModalOverlay').classList.remove('open'));
+  });
+  document.getElementById('dayModalOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'dayModalOverlay') e.target.classList.remove('open');
+  });
+
+  document.getElementById('saveEventBtn').onclick = ()=>{
+    const title = document.getElementById('evTitle').value.trim();
+    if(!title){ alert('Geef de afspraak een titel.'); return; }
+    const tijd = document.getElementById('evTime').value;
+    const notitie = document.getElementById('evNote').value.trim();
+    if(bewerkendEvent){
+      bewerkendEvent.title = title;
+      bewerkendEvent.time = tijd;
+      bewerkendEvent.note = notitie;
+      bewerkendEvent = null;
+      document.getElementById('saveEventBtn').textContent = 'Opslaan';
+    } else {
+      data.events.push({ date: geselecteerdeDagISO, title, time: tijd, note: notitie });
+    }
+    bewaarData();
+    const [j,m,d] = geselecteerdeDagISO.split('-').map(Number);
+    renderDagItems(geselecteerdeDagISO, m-1, d);
+    renderAlles();
+    switchTab('items');
+    document.getElementById('evTitle').value='';
+    document.getElementById('evTime').value='';
+    document.getElementById('evNote').value='';
+  };
+
+  document.getElementById('saveBirthdayBtn').onclick = ()=>{
+    const name = document.getElementById('bdName').value.trim();
+    if(!name){ alert('Geef een naam op.'); return; }
+    const [j,m,d] = geselecteerdeDagISO.split('-').map(Number);
+    const yearVal = document.getElementById('bdYear').value;
+    const jaarGetal = yearVal ? parseInt(yearVal,10) : null;
+    if(bewerkendBirthday){
+      bewerkendBirthday.name = name;
+      bewerkendBirthday.year = jaarGetal;
+      bewerkendBirthday = null;
+      document.getElementById('saveBirthdayBtn').textContent = 'Opslaan';
+    } else {
+      data.birthdays.push({ name, month: m, day: d, year: jaarGetal });
+    }
+    bewaarData();
+    renderDagItems(geselecteerdeDagISO, m-1, d);
+    renderAlles();
+    switchTab('items');
+    document.getElementById('bdName').value='';
+    document.getElementById('bdYear').value='';
+  };
+
+  // ---------- Back-up export/import ----------
+  document.getElementById('exportBtn').onclick = ()=>{
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mijn-kalender-backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById('importFile').onchange = (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const imported = JSON.parse(reader.result);
+        if(imported && typeof imported === 'object'){
+          data = Object.assign(standaardData(), imported);
+          bewaarData();
+          renderAlles();
+          alert('Back-up geladen!');
+        }
+      }catch(err){
+        alert('Kon het bestand niet lezen. Is het een geldige back-up?');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // ---------- Agenda koppelen (.ics import) ----------
+  function parseICS(tekst){
+    const gevonden = [];
+    const blokken = tekst.split('BEGIN:VEVENT').slice(1);
+    blokken.forEach(blok=>{
+      blok = blok.split('END:VEVENT')[0];
+      const titelMatch = blok.match(/SUMMARY:(.*)/);
+      const datumMatch = blok.match(/DTSTART[^:]*:(\d{8})/);
+      if(titelMatch && datumMatch){
+        const ymd = datumMatch[1];
+        const iso = `${ymd.slice(0,4)}-${ymd.slice(4,6)}-${ymd.slice(6,8)}`;
+        gevonden.push({ date: iso, title: titelMatch[1].trim().replace(/\\,/g,',').replace(/\\n/gi,' ') });
+      }
+    });
+    return gevonden;
+  }
+
+  document.getElementById('icsInput').onchange = (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const gevonden = parseICS(reader.result);
+      let toegevoegd = 0;
+      gevonden.forEach(item=>{
+        const bestaatAl = data.events.some(ev => ev.date === item.date && ev.title === item.title);
+        if(!bestaatAl){
+          data.events.push({ date: item.date, title: item.title, time:'', note:'Geïmporteerd uit agenda' });
+          toegevoegd++;
+        }
+      });
+      bewaarData();
+      renderAlles();
+      alert(toegevoegd > 0 ? `${toegevoegd} afspraken geïmporteerd.` : 'Geen nieuwe afspraken gevonden in dit bestand.');
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
+  // ---------- Init ----------
+  zetModus(huidigeModus);
+  renderAlles();
+
+  // ---------- PWA: service worker registreren ----------
+  // Werkt alleen als de app via https:// (of localhost) gehost wordt — niet bij een lokaal
+  // geopend bestand (file://), browsers staan service workers daar niet toe.
+  if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('service-worker.js').catch(err=>{
+        console.warn('Service worker registratie mislukt:', err);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

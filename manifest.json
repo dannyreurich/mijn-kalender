@@ -2,7 +2,7 @@
   "name": "Mijn Kalender",
   "short_name": "Mijn Kalender",
   "description": "Een persoonlijke fotokalender met afspraken, verjaardagen en Nederlandse feestdagen.",
-  "start_url": "./Mijn_Kalender.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",

@@ -1,7 +1,7 @@
 {
-  "name": "Mijn Kalender",
-  "short_name": "Mijn Kalender",
-  "description": "Een persoonlijke fotokalender met afspraken, verjaardagen en Nederlandse feestdagen.",
+  "name": "MyCalendar",
+  "short_name": "MyCalendar",
+  "description": "A personal calendar with photo's, appointments and birthdays",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -29,5 +29,21 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "id": "MC",
+  "categories": [
+    "business",
+    "design",
+    "development",
+    "entertainment",
+    "events",
+    "graphics",
+    "graphics &amp; design",
+    "lifestyle",
+    "multimedia design",
+    "personalization",
+    "photo",
+    "photo &amp; video",
+    "social"
   ]
 }

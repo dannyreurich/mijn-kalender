@@ -13,6 +13,7 @@
 <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
     --bg: #f4f1ea;
@@ -454,11 +455,59 @@
     cursor:pointer;
     z-index:3;
     box-shadow:0 2px 6px rgba(0,0,0,.2);
+    opacity:1;
+    transition:opacity .4s ease;
+  }
+  .mode-toggle-fab.verborgen{
+    opacity:0;
+    pointer-events:none;
   }
   .to-view-btn{
     background: transparent;
     color: var(--accent);
     border:1px solid var(--accent);
+  }
+
+  /* Inloggen met Google */
+  #loginGate{
+    position:fixed; inset:0; z-index:500;
+    background: var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+    transition:opacity .25s ease;
+  }
+  #loginGate.verborgen{ display:none; }
+  .login-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:36px 32px;
+    max-width:380px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 8px 30px rgba(0,0,0,.15);
+  }
+  .login-card h1{ margin:0 0 10px; color:var(--accent); font-size:1.5rem; }
+  .login-card p{ color:var(--muted); font-size:.9rem; margin-bottom:20px; }
+  .google-login-btn{
+    display:inline-flex; align-items:center; gap:10px;
+    background:#fff; color:#3c4043;
+    border:1px solid #dadce0; border-radius:8px;
+    padding:10px 20px; font-size:.95rem; font-weight:600;
+    cursor:pointer;
+  }
+  .google-login-btn:hover{ box-shadow:0 1px 4px rgba(0,0,0,.15); }
+  .google-login-btn svg{ width:18px; height:18px; }
+  #loginFoutmelding{ color:#d94848; margin-top:14px; font-size:.8rem; }
+  .google-user-chip{
+    display:none; align-items:center; gap:8px;
+    font-size:.8rem;
+  }
+  .google-user-chip img{ width:26px; height:26px; border-radius:50%; }
+  .google-user-chip button{
+    background:none; border:1px solid var(--border);
+    border-radius:6px; padding:4px 10px; font-size:.75rem; cursor:pointer;
+    color:var(--muted);
   }
 
   .view-calendar{
@@ -566,6 +615,19 @@
 </head>
 <body>
 
+<!-- ============ INLOGGEN MET GOOGLE ============ -->
+<div id="loginGate">
+  <div class="login-card">
+    <h1>📅 Mijn Kalender</h1>
+    <p>Log in met je Google-account om je eigen kalender te openen. Je gegevens blijven op dit apparaat, gekoppeld aan jouw account.</p>
+    <button id="googleLoginBtn" class="google-login-btn">
+      <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l6.19 5.238C39.911 36.918 44 31 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+      Inloggen met Google
+    </button>
+    <p id="loginFoutmelding" style="display:none;"></p>
+  </div>
+</div>
+
 <!-- ============ BEWERKMODUS ============ -->
 <div id="editContainer">
   <header>
@@ -577,6 +639,11 @@
       <button id="todayBtn">Vandaag</button>
     </div>
     <div class="top-actions">
+      <div class="google-user-chip" id="googleUserChip">
+        <img id="googleUserFoto" src="" alt="">
+        <span id="googleUserNaam"></span>
+        <button id="logoutBtn" type="button">Uitloggen</button>
+      </div>
       <button class="btn to-view-btn" id="toViewBtn">👁️ Weergavemodus</button>
     </div>
   </header>
@@ -715,8 +782,11 @@
 
       <div class="card">
         <h3>🔗 Agenda koppelen</h3>
-        <p class="help-text" style="margin-top:0;">Exporteer je agenda (Google/Outlook/Apple) als .ics-bestand en importeer 'm hier. Live synchroniseren kan niet in dit offline bestand — dit is een eenmalige import van titels en data.</p>
-        <label class="btn btn-primary" style="display:block;text-align:center;cursor:pointer;">
+        <button class="btn btn-primary" id="googleSyncBtn" style="display:block;width:100%;margin-bottom:8px;">📅 Synchroniseer met Google Agenda</button>
+        <p class="help-text" id="googleSyncStatus" style="margin-top:0;">Haalt je agenda-items van de komende 12 maanden op. Verjaardagen uit Google worden automatisch als verjaardag toegevoegd.</p>
+        <hr class="sep">
+        <p class="help-text" style="margin-top:0;">Werk je met Outlook of een andere agenda? Exporteer die als .ics-bestand en importeer 'm hier (eenmalig, geen live sync).</p>
+        <label class="btn btn-secondary" style="display:block;text-align:center;cursor:pointer;">
           Importeer .ics bestand
           <input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none;">
         </label>
@@ -826,8 +896,9 @@
 
 <script>
 (function(){
-  const STORAGE_KEY = 'mijnKalenderData_v2';
+  const STORAGE_KEY_BASIS = 'mijnKalenderData_v2';
   const OLD_STORAGE_KEY = 'mijnKalenderData_v1';
+  let STORAGE_KEY = null; // wordt pas gezet na inloggen (per Google-account)
   const MAAND_NAMEN = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
 
   const FONT_MAP = {
@@ -840,7 +911,7 @@
   };
   const SIZE_MAP = { klein: '14px', normaal: '16px', groot: '18px', extragroot: '21px' };
 
-  let data = laadData();
+  let data = standaardData(); // pas echt geladen na inloggen (laadData() gebruikt STORAGE_KEY)
   let huidigeDatum = new Date();
   let geselecteerdeDagISO = null;
   let bewerkendEvent = null;
@@ -865,9 +936,19 @@
   }
 
   function laadData(){
+    if(!STORAGE_KEY) return standaardData();
     try{
       let raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) raw = localStorage.getItem(OLD_STORAGE_KEY);
+      // Eenmalige migratie: kalenders die vóór het inlogsysteem al lokaal bestonden
+      // (zonder account-koppeling) overzetten naar het account dat nu inlogt.
+      if(!raw){
+        raw = localStorage.getItem(STORAGE_KEY_BASIS) || localStorage.getItem(OLD_STORAGE_KEY);
+        if(raw){
+          localStorage.setItem(STORAGE_KEY, raw);
+          localStorage.removeItem(STORAGE_KEY_BASIS);
+          localStorage.removeItem(OLD_STORAGE_KEY);
+        }
+      }
       if(raw){
         const geladen = Object.assign(standaardData(), JSON.parse(raw));
         if(!geladen.maandStijlen) geladen.maandStijlen = {};
@@ -890,6 +971,7 @@
   }
 
   function bewaarData(){
+    if(!STORAGE_KEY) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
 
@@ -1383,6 +1465,7 @@
     bewaarData();
     document.getElementById('editContainer').style.display = modus === 'edit' ? 'block' : 'none';
     document.getElementById('viewContainer').style.display = modus === 'view' ? 'block' : 'none';
+    if(modus === 'view') toonPotlood();
   }
   document.getElementById('toViewBtn').onclick = ()=> zetModus('view');
   document.getElementById('toEditBtn').onclick = ()=> zetModus('edit');
@@ -1423,6 +1506,18 @@
     if(e.key === 'ArrowLeft') vorigeMaand();
     if(e.key === 'ArrowRight') volgendeMaand();
   });
+
+  // Potloodje (bewerken-knop) verbergen na 2 seconden inactiviteit in weergavemodus
+  let potloodTimer = null;
+  function toonPotlood(){
+    const fab = document.getElementById('toEditBtn');
+    fab.classList.remove('verborgen');
+    if(potloodTimer) clearTimeout(potloodTimer);
+    potloodTimer = setTimeout(()=>{ fab.classList.add('verborgen'); }, 2000);
+  }
+  viewContainer.addEventListener('touchstart', toonPotlood, {passive:true});
+  viewContainer.addEventListener('click', toonPotlood);
+  viewContainer.addEventListener('mousemove', toonPotlood);
 
   // ---------- Personalisatie ----------
   function huidigeMaandNr(){ return huidigeDatum.getMonth() + 1; }
@@ -1700,9 +1795,168 @@
     reader.readAsText(file);
   };
 
-  // ---------- Init ----------
-  zetModus(huidigeModus);
-  renderAlles();
+  // ---------- Inloggen met Google ----------
+  // Vervang de waarde hieronder door je eigen Google OAuth Client ID
+  // (aan te maken via console.cloud.google.com — zie de uitleg die je apart hebt gekregen).
+  const GOOGLE_CLIENT_ID = '723204705546-73gl00r2m9krgd30plv5l7j2ls8fat9e.apps.googleusercontent.com';
+  const GOOGLE_SCOPES = 'openid email profile https://www.googleapis.com/auth/calendar.readonly';
+
+  let googleAccessToken = null;
+  let googleGebruiker = null;
+  let tokenClient = null;
+
+  function toonLoginFout(bericht){
+    const el = document.getElementById('loginFoutmelding');
+    el.textContent = bericht;
+    el.style.display = 'block';
+  }
+
+  function initGoogleLogin(pogingen){
+    pogingen = pogingen || 0;
+    if(GOOGLE_CLIENT_ID.indexOf('VUL-HIER') === 0){
+      toonLoginFout('Er is nog geen Google Client ID ingesteld in de code.');
+      return;
+    }
+    if(typeof google !== 'undefined' && google.accounts && google.accounts.oauth2){
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: GOOGLE_SCOPES,
+        callback: (tokenResponse)=>{
+          if(!tokenResponse || tokenResponse.error){
+            toonLoginFout('Inloggen is niet gelukt. Probeer het opnieuw.');
+            return;
+          }
+          googleAccessToken = tokenResponse.access_token;
+          laadGoogleGebruiker();
+        }
+      });
+      return;
+    }
+    if(pogingen < 20){
+      setTimeout(()=> initGoogleLogin(pogingen + 1), 250);
+    } else {
+      toonLoginFout('Kon Google-inlog niet laden. Controleer je internetverbinding en ververs de pagina.');
+    }
+  }
+
+  function laadGoogleGebruiker(){
+    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    })
+      .then((res)=>{ if(!res.ok) throw new Error('userinfo'); return res.json(); })
+      .then((info)=>{
+        googleGebruiker = { sub: info.sub, email: info.email, name: info.name, picture: info.picture };
+        naInloggen();
+      })
+      .catch(()=>{
+        toonLoginFout('Kon je accountgegevens niet ophalen. Probeer opnieuw in te loggen.');
+      });
+  }
+
+  function naInloggen(){
+    STORAGE_KEY = STORAGE_KEY_BASIS + '_' + googleGebruiker.sub;
+    data = laadData();
+    huidigeDatum = new Date();
+    huidigeModus = data.mode === 'view' ? 'view' : 'edit';
+
+    document.getElementById('loginGate').classList.add('verborgen');
+    document.getElementById('googleUserFoto').src = googleGebruiker.picture || '';
+    document.getElementById('googleUserNaam').textContent = googleGebruiker.name || googleGebruiker.email || '';
+    document.getElementById('googleUserChip').style.display = 'flex';
+
+    zetModus(huidigeModus);
+    renderAlles();
+  }
+
+  document.getElementById('googleLoginBtn').onclick = ()=>{
+    if(!tokenClient){ toonLoginFout('Google-inlog is nog niet klaar, probeer het over een paar seconden opnieuw.'); return; }
+    document.getElementById('loginFoutmelding').style.display = 'none';
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  };
+
+  document.getElementById('logoutBtn').onclick = ()=>{
+    if(googleAccessToken && typeof google !== 'undefined' && google.accounts && google.accounts.oauth2){
+      google.accounts.oauth2.revoke(googleAccessToken, ()=>{});
+    }
+    googleAccessToken = null;
+    googleGebruiker = null;
+    STORAGE_KEY = null;
+    document.getElementById('googleUserChip').style.display = 'none';
+    document.getElementById('loginGate').classList.remove('verborgen');
+  };
+
+  initGoogleLogin();
+
+  // ---------- Google Agenda synchroniseren ----------
+  document.getElementById('googleSyncBtn').onclick = ()=>{
+    const statusEl = document.getElementById('googleSyncStatus');
+    if(!googleAccessToken){
+      statusEl.textContent = 'Log eerst in met Google om te synchroniseren.';
+      return;
+    }
+    statusEl.textContent = 'Bezig met ophalen...';
+
+    const nu = new Date();
+    const eenJaarLater = new Date(nu.getFullYear() + 1, nu.getMonth(), nu.getDate());
+    const params = new URLSearchParams({
+      timeMin: nu.toISOString(),
+      timeMax: eenJaarLater.toISOString(),
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '250'
+    });
+
+    fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?' + params.toString(), {
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    })
+      .then((res)=>{
+        if(res.status === 401) throw new Error('verlopen');
+        if(!res.ok) throw new Error('ophalen mislukt');
+        return res.json();
+      })
+      .then((json)=>{
+        const items = json.items || [];
+        let nieuweAfspraken = 0;
+        let nieuweVerjaardagen = 0;
+
+        items.forEach((item)=>{
+          if(!item.summary) return;
+          const startRuw = item.start && (item.start.date || item.start.dateTime);
+          if(!startRuw) return;
+          const datumIso = startRuw.slice(0, 10);
+          const maandNr = parseInt(datumIso.slice(5, 7), 10);
+          const dagNr = parseInt(datumIso.slice(8, 10), 10);
+          const isVerjaardag = item.eventType === 'birthday' ||
+            (item.recurrence && item.recurrence.some((r)=> /FREQ=YEARLY/.test(r)));
+
+          if(isVerjaardag){
+            const bestaatAl = data.birthdays.some((b)=> b.month === maandNr && b.day === dagNr && b.name === item.summary);
+            if(!bestaatAl){
+              data.birthdays.push({ name: item.summary, month: maandNr, day: dagNr, year: null });
+              nieuweVerjaardagen++;
+            }
+          } else {
+            const tijd = item.start.dateTime ? item.start.dateTime.slice(11, 16) : '';
+            const bestaatAl = data.events.some((ev)=> ev.date === datumIso && ev.title === item.summary);
+            if(!bestaatAl){
+              data.events.push({ date: datumIso, title: item.summary, time: tijd, note: 'Uit Google Agenda' });
+              nieuweAfspraken++;
+            }
+          }
+        });
+
+        bewaarData();
+        renderAlles();
+        statusEl.textContent = `Klaar: ${nieuweAfspraken} afspraken en ${nieuweVerjaardagen} verjaardagen toegevoegd.`;
+      })
+      .catch((err)=>{
+        if(err.message === 'verlopen'){
+          statusEl.textContent = 'Je sessie is verlopen. Log opnieuw in (uitloggen + inloggen) en probeer het nogmaals.';
+        } else {
+          statusEl.textContent = 'Synchroniseren is niet gelukt. Probeer het later opnieuw.';
+        }
+      });
+  };
 
   // ---------- PWA: service worker registreren ----------
   // Werkt alleen als de app via https:// (of localhost) gehost wordt — niet bij een lokaal
